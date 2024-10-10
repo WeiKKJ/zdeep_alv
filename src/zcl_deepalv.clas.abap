@@ -104,15 +104,15 @@ CLASS ZCL_DEEPALV IMPLEMENTATION.
 
 
   METHOD display_deep_structure_compdes.
-    FIELD-SYMBOLS:<fs_new_data> TYPE STANDARD TABLE.
-    DATA:lt_fieldcat TYPE lvc_t_fcat.
+    DATA:lt_fieldcat TYPE lvc_t_fcat,
+         comp        TYPE abap_component_tab,
+         msg         TYPE string.
     DATA:dref_tab   TYPE REF TO data,
          data_type  TYPE REF TO cl_abap_datadescr,
-         table_type TYPE REF TO cl_abap_tabledescr,
-         elem_type  TYPE REF TO cl_abap_elemdescr.
-    DATA:comp TYPE abap_component_tab.
-    FIELD-SYMBOLS:<dref_tab> TYPE STANDARD TABLE,
-                  <tab>      TYPE STANDARD TABLE.
+         table_type TYPE REF TO cl_abap_tabledescr.
+    FIELD-SYMBOLS:<dref_tab>    TYPE STANDARD TABLE,
+                  <tab>         TYPE STANDARD TABLE,
+                  <fs_new_data> TYPE STANDARD TABLE.
 *将I_DEEPSTRC始终构造为内表
     IF i_deepstrc IS INITIAL.
       MESSAGE '无数据!' TYPE 'S'.
@@ -127,27 +127,24 @@ CLASS ZCL_DEEPALV IMPLEMENTATION.
         INSERT i_deepstrc INTO TABLE <dref_tab>.
       WHEN 'h'.
 *& kkw 添加对单元素内表的展示支持
-        CREATE DATA dref_tab TYPE HANDLE data_type.
-        ASSIGN dref_tab->* TO <dref_tab>.
-        <dref_tab> = i_deepstrc.
-        TRY.
-            table_type ?= cl_abap_datadescr=>describe_by_data( i_deepstrc ).
-            DATA(struct_type) = CAST cl_abap_structdescr( table_type->get_table_line_type( ) ).
-          CATCH cx_root INTO DATA(exc).
-            DATA(error) = exc->get_text( ).
-            TRY.
-                elem_type ?= table_type->get_table_line_type( ).
-              CATCH cx_root INTO DATA(exce).
-                MESSAGE exce->get_text( ) TYPE 'E'.
-            ENDTRY.
+        table_type ?= data_type.
+        DATA(datadescr) = table_type->get_table_line_type( ).
+        CASE datadescr->kind.
+          WHEN 'S'.
+            CREATE DATA dref_tab TYPE HANDLE data_type.
+            ASSIGN dref_tab->* TO <dref_tab>.
+            <dref_tab> = i_deepstrc.
+          WHEN 'E'.
+            CLEAR comp.
+            DATA(elem_type) = CAST cl_abap_elemdescr( datadescr ).
             INSERT INITIAL LINE INTO TABLE comp ASSIGNING FIELD-SYMBOL(<comp>).
             <comp>-name         = elem_type->get_relative_name( ).
             <comp>-type         ?= elem_type.
             <comp>-as_include   = ''.
             <comp>-suffix       = ''.
             DATA(struc) = cl_abap_structdescr=>create( comp ).
-            data_type ?= cl_abap_tabledescr=>create( p_line_type = struc ).
-            CREATE DATA dref_tab TYPE HANDLE data_type.
+            DATA(dt) = cl_abap_tabledescr=>create( p_line_type = struc ).
+            CREATE DATA dref_tab TYPE HANDLE dt.
             ASSIGN dref_tab->* TO <dref_tab>.
             ASSIGN i_deepstrc TO <tab>.
             IF sy-subrc EQ 0.
@@ -158,10 +155,12 @@ CLASS ZCL_DEEPALV IMPLEMENTATION.
               ENDLOOP.
               UNASSIGN <tab>.
             ENDIF.
-        ENDTRY.
-*& End  20.09.2024 10:26:08
+          WHEN OTHERS.
+            msg = |不受支持的数据类型【{ datadescr->kind }】:【{ datadescr->get_relative_name( ) }】|.
+            MESSAGE msg TYPE 'E'.
+        ENDCASE.
       WHEN OTHERS.
-        DATA(msg) = |不受支持的数据类型:{ data_type->get_relative_name( ) }|.
+        msg = |不受支持的数据类型:【{ data_type->kind }】:【{ data_type->get_relative_name( ) }】|.
         MESSAGE msg TYPE 'E'.
     ENDCASE.
     CHECK <dref_tab> IS ASSIGNED.
@@ -648,6 +647,7 @@ CLASS ZCL_DEEPALV IMPLEMENTATION.
         ).
       CATCH cx_root INTO DATA(exc).
         DATA(errtext) = exc->get_text( ).
+        MESSAGE errtext TYPE 'E'.
     ENDTRY.
     component_table = struct_type->get_components( ).
     compdescr_table = struct_type->components.
