@@ -108,6 +108,7 @@ CLASS ZCL_DEEPALV IMPLEMENTATION.
          comp        TYPE abap_component_tab,
          msg         TYPE string.
     DATA:dref_tab   TYPE REF TO data,
+         ref_line   TYPE REF TO data,
          data_type  TYPE REF TO cl_abap_datadescr,
          table_type TYPE REF TO cl_abap_tabledescr.
     FIELD-SYMBOLS:<dref_tab>    TYPE STANDARD TABLE,
@@ -131,8 +132,17 @@ CLASS ZCL_DEEPALV IMPLEMENTATION.
         DATA(datadescr) = table_type->get_table_line_type( ).
         CASE datadescr->kind.
           WHEN 'S'.
-            CREATE DATA dref_tab TYPE HANDLE data_type.
-            ASSIGN dref_tab->* TO <dref_tab>.
+*& kkw 添加对排序内表的展示支持
+            IF table_type->table_kind NE table_type->tablekind_std.
+              CREATE DATA ref_line TYPE HANDLE datadescr.
+              ASSIGN ref_line->* TO FIELD-SYMBOL(<ref_line>).
+              CREATE DATA dref_tab LIKE STANDARD TABLE OF <ref_line>.
+              ASSIGN dref_tab->* TO <dref_tab>.
+            ELSE.
+              CREATE DATA dref_tab TYPE HANDLE data_type.
+              ASSIGN dref_tab->* TO <dref_tab>.
+            ENDIF.
+*& End  04.11.2024 10:36:58
             <dref_tab> = i_deepstrc.
           WHEN 'E'.
             CLEAR comp.
@@ -222,13 +232,11 @@ CLASS ZCL_DEEPALV IMPLEMENTATION.
   METHOD hotspot_click_compdescr.
     FIELD-SYMBOLS:
       <fs_current_display> TYPE INDEX TABLE,
-      <fs_table>           TYPE STANDARD TABLE,
+      <fs_table>           TYPE ANY TABLE,
       <fs_struc>           TYPE any.
-
-    DATA:
-      lo_current_display TYPE REF TO data,
-      lv_obj_type        TYPE char1,
-      lo_data            TYPE REF TO data.
+    DATA:lo_current_display TYPE REF TO data,
+         lv_obj_type        TYPE char1,
+         lo_data            TYPE REF TO data.
 
 *   获取当前界面展示扁平内表对应的原始内表（深层内表）
     READ TABLE mo_display_stack INTO lo_current_display INDEX 1.
@@ -238,22 +246,20 @@ CLASS ZCL_DEEPALV IMPLEMENTATION.
     IF <fs_current_row> IS ASSIGNED.
 *     获取点击单元格数据内容
       ASSIGN COMPONENT i_selfield-fieldname OF STRUCTURE <fs_current_row> TO FIELD-SYMBOL(<fs_deep_field>).
-
 *     获取点击单元格数据类型
       lv_obj_type = cl_abap_tabledescr=>describe_by_data( <fs_deep_field> )->type_kind.
-
       CASE lv_obj_type.
-*       表类型
+*       表
         WHEN cl_abap_elemdescr=>typekind_table.
           ASSIGN <fs_deep_field> TO <fs_table>.
 *       深层结构或者扁平结构
         WHEN cl_abap_elemdescr=>typekind_struct2 OR cl_abap_elemdescr=>typekind_struct1.
           CREATE DATA lo_data LIKE TABLE OF <fs_deep_field>.
           ASSIGN lo_data->* TO <fs_table>.
-          APPEND <fs_deep_field> TO <fs_table>.
+          INSERT INITIAL LINE INTO TABLE <fs_table> ASSIGNING FIELD-SYMBOL(<line>).
+          <line> = <fs_deep_field> .
         WHEN OTHERS.
       ENDCASE.
-
       IF <fs_table> IS ASSIGNED.
         IF <fs_table> IS NOT INITIAL.
           display_deep_structure_compdes( i_deepstrc = <fs_table> i_callback_user_command = mv_callback_user_command  ).
@@ -536,7 +542,6 @@ CLASS ZCL_DEEPALV IMPLEMENTATION.
             IF <fs_table> IS ASSIGNED.
               ASSIGN COMPONENT <fs_compdescr>-name OF STRUCTURE <fs_new_line> TO FIELD-SYMBOL(<fs_tab_desc>).
               IF <fs_tab_desc> IS ASSIGNED.
-*                <fs_tab_desc> = |{ icon_list }Items[ { lines( <fs_table> ) } ]|.
                 <fs_tab_desc> = |{ icon_list }{ <fs_compdescr>-name }[ { lines( <fs_table> ) } ]|.
                 UNASSIGN:
                 <fs_tab_desc>,
@@ -592,11 +597,7 @@ CLASS ZCL_DEEPALV IMPLEMENTATION.
         WHEN cl_abap_elemdescr=>typekind_struct2 OR cl_abap_elemdescr=>typekind_struct1.
           componentdescr-type ?= cl_abap_elemdescr=>get_c( p_length = 70 ).
         WHEN OTHERS.
-*          TRY.
-*              componentdescr-type ?= cl_abap_elemdescr=>describe_by_name( p_name = <mt_compdescr>-name ).
-*            CATCH type_not_found.
           componentdescr-type ?= cl_abap_elemdescr=>get_by_kind( p_type_kind = <mt_compdescr>-type_kind p_length = <mt_compdescr>-length p_decimals = <mt_compdescr>-decimals ).
-*          ENDTRY.
       ENDCASE.
       APPEND componentdescr TO componentdescr_tab.
     ENDLOOP.
