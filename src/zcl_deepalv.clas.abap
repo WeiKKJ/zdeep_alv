@@ -127,14 +127,13 @@ CLASS ZCL_DEEPALV IMPLEMENTATION.
         ASSIGN dref_tab->* TO <dref_tab>.
         INSERT i_deepstrc INTO TABLE <dref_tab>.
       WHEN 'h'.
-*& kkw 添加对单元素内表的展示支持
         table_type ?= data_type.
-        DATA(datadescr) = table_type->get_table_line_type( ).
-        CASE datadescr->kind.
+        DATA(line_type) = table_type->get_table_line_type( ).
+        CASE line_type->kind.
           WHEN 'S'.
 *& kkw 添加对排序内表的展示支持
             IF table_type->table_kind NE table_type->tablekind_std.
-              CREATE DATA ref_line TYPE HANDLE datadescr.
+              CREATE DATA ref_line TYPE HANDLE line_type.
               ASSIGN ref_line->* TO FIELD-SYMBOL(<ref_line>).
               CREATE DATA dref_tab LIKE STANDARD TABLE OF <ref_line>.
               ASSIGN dref_tab->* TO <dref_tab>.
@@ -145,8 +144,9 @@ CLASS ZCL_DEEPALV IMPLEMENTATION.
 *& End  04.11.2024 10:36:58
             <dref_tab> = i_deepstrc.
           WHEN 'E'.
+*& kkw 添加对单元素内表的展示支持
             CLEAR comp.
-            DATA(elem_type) = CAST cl_abap_elemdescr( datadescr ).
+            DATA(elem_type) = CAST cl_abap_elemdescr( line_type ).
             INSERT INITIAL LINE INTO TABLE comp ASSIGNING FIELD-SYMBOL(<comp>).
             <comp>-name         = elem_type->get_relative_name( ).
             <comp>-type         ?= elem_type.
@@ -166,9 +166,10 @@ CLASS ZCL_DEEPALV IMPLEMENTATION.
               UNASSIGN <tab>.
             ENDIF.
           WHEN OTHERS.
-            msg = |不受支持的数据类型【{ datadescr->kind }】:【{ datadescr->get_relative_name( ) }】|.
+            msg = |不受支持的数据类型【{ line_type->kind }】:【{ line_type->get_relative_name( ) }】|.
             MESSAGE msg TYPE 'E'.
         ENDCASE.
+*& End
       WHEN OTHERS.
         msg = |不受支持的数据类型:【{ data_type->kind }】:【{ data_type->get_relative_name( ) }】|.
         MESSAGE msg TYPE 'E'.
