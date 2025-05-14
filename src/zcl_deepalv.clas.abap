@@ -589,12 +589,12 @@ CLASS ZCL_DEEPALV IMPLEMENTATION.
       componentdescr-name = <mt_compdescr>-name.
       CASE <mt_compdescr>-type_kind.
         WHEN cl_abap_elemdescr=>typekind_table.
-          READ TABLE mt_components INTO DATA(wa_mt_components) WITH KEY name = <mt_compdescr>-name.
-          IF sy-subrc EQ 0.
-            componentdescr-type ?= cl_abap_elemdescr=>get_c( p_length = 70 ).
-          ELSE.
-            CONTINUE.
-          ENDIF.
+*          READ TABLE mt_components INTO DATA(wa_mt_components) WITH KEY name = <mt_compdescr>-name.
+*          IF sy-subrc EQ 0.
+          componentdescr-type ?= cl_abap_elemdescr=>get_c( p_length = 70 ).
+*          ELSE.
+*            CONTINUE.
+*          ENDIF.
         WHEN cl_abap_elemdescr=>typekind_struct2 OR cl_abap_elemdescr=>typekind_struct1.
           componentdescr-type ?= cl_abap_elemdescr=>get_c( p_length = 70 ).
         WHEN OTHERS.
