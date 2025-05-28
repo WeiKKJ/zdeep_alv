@@ -446,6 +446,8 @@ CLASS ZCL_DEEPALV IMPLEMENTATION.
           ls_fieldcat-scrtext_s = ls_fieldcat-reptext.
           ls_fieldcat-scrtext_m = ls_fieldcat-reptext.
           ls_fieldcat-scrtext_l = ls_fieldcat-reptext.
+          ls_fieldcat-coltext = ls_fieldcat-reptext.
+          ls_fieldcat-col_opt   = 'A'.
           APPEND ls_fieldcat TO fieldcat.
           CLEAR ls_fieldcat.
         ENDLOOP.
